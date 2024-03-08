@@ -1,0 +1,80 @@
+{
+    "name": "@diia-inhouse/env",
+    "version": "1.5.0",
+    "description": "Environment checking service",
+    "main": "dist/index.js",
+    "types": "dist/types/index.d.ts",
+    "repository": "https://github.com/diia-open-source/be-pkg-env.git",
+    "author": "Diia",
+    "license": "SEE LICENSE IN LICENSE.md",
+    "files": [
+        "dist"
+    ],
+    "engines": {
+        "node": ">=18"
+    },
+    "scripts": {
+        "prebuild": "rimraf dist",
+        "build": "tsc",
+        "semantic-release": "semantic-release",
+        "start": "npm run build && node dist/index.js",
+        "lint": "eslint --ext .ts . && prettier --check .",
+        "lint-fix": "eslint '*/**/*.{js,ts}' --fix && prettier --write .",
+        "lint:lockfile": "lockfile-lint --path package-lock.json --allowed-hosts registry.npmjs.org --validate-https",
+        "prepare": "npm run build",
+        "test": "jest",
+        "test:unit": "npm run test --selectProjects unit --",
+        "test:integration": "npm run test --selectProjects integration --",
+        "test:coverage": "npm run test --selectProjects unit --coverage --",
+        "find-circulars": "madge --circular --extensions ts ./"
+    },
+    "devDependencies": {
+        "@diia-inhouse/configs": "^1.27.1",
+        "@diia-inhouse/diia-logger": "^2.9.0",
+        "@diia-inhouse/eslint-config": "^3.5.0",
+        "@diia-inhouse/test": "^5.1.1",
+        "@diia-inhouse/types": "^5.0.1",
+        "@types/lodash.get": "4.4.9",
+        "@types/request": "2.48.12"
+    },
+    "peerDependencies": {
+        "@diia-inhouse/types": ">=5.0.1"
+    },
+    "release": {
+        "extends": "@diia-inhouse/configs/dist/semantic-release/package",
+        "branches": [
+            "main"
+        ]
+    },
+    "commitlint": {
+        "extends": "@diia-inhouse/configs/dist/commitlint"
+    },
+    "eslintConfig": {
+        "extends": "@diia-inhouse/eslint-config",
+        "overrides": [
+            {
+                "files": [
+                    "*.ts"
+                ],
+                "parserOptions": {
+                    "project": [
+                        "./tsconfig.json",
+                        "./tests/tsconfig.json"
+                    ]
+                }
+            }
+        ]
+    },
+    "jest": {
+        "preset": "@diia-inhouse/configs/dist/jest"
+    },
+    "prettier": "@diia-inhouse/eslint-config/prettier",
+    "madge": {
+        "tsConfig": "./tsconfig.json"
+    },
+    "dependencies": {
+        "lodash.get": "4.4.2",
+        "node-vault": "0.10.2",
+        "protobufjs": "7.2.5"
+    }
+}
