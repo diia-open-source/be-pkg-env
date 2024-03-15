@@ -26,7 +26,7 @@ This repository contains the package which provides environment checking service
 Example:
 
 ```
-git clone https://github.com/diia-open-source/pkg-env.git
+git clone https://github.com/diia-open-source/be-pkg-env.git pkg-env
 ```
 
 ---
