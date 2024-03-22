@@ -35,7 +35,9 @@
         "@diia-inhouse/test": "^5.1.1",
         "@diia-inhouse/types": "^5.0.1",
         "@types/lodash.get": "4.4.9",
-        "@types/request": "2.48.12"
+        "@types/request": "2.48.12",
+        "type-fest": "^4.8.1",
+        "typescript": "5.3.3"
     },
     "peerDependencies": {
         "@diia-inhouse/types": ">=5.0.1"
