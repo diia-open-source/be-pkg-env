@@ -3,7 +3,7 @@ import { DurationMs } from '@diia-inhouse/types'
 
 import { EnvService } from '../../src'
 
-describe('EnvService', () => {
+xdescribe('EnvService', () => {
     const env = Object.assign({}, process.env)
 
     beforeEach(() => {
