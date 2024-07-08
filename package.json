@@ -1,6 +1,6 @@
 {
     "name": "@diia-inhouse/env",
-    "version": "1.5.1",
+    "version": "1.16.0",
     "description": "Environment checking service",
     "main": "dist/index.js",
     "types": "dist/types/index.d.ts",
@@ -29,16 +29,20 @@
         "find-circulars": "madge --circular --extensions ts ./"
     },
     "devDependencies": {
-        "@diia-inhouse/configs": "^1.27.1",
-        "@diia-inhouse/diia-logger": "^2.9.0",
-        "@diia-inhouse/eslint-config": "^3.5.0",
-        "@diia-inhouse/test": "^5.1.1",
-        "@diia-inhouse/types": "^5.0.1",
+        "@diia-inhouse/configs": "1.31.1",
+        "@diia-inhouse/diia-logger": "2.15.0",
+        "@diia-inhouse/eslint-config": "5.1.0",
+        "@diia-inhouse/errors": "1.9.0",
+        "@diia-inhouse/test": "6.3.0",
+        "@diia-inhouse/types": "6.24.0",
         "@types/lodash.get": "4.4.9",
-        "@types/request": "2.48.12"
+        "@types/request": "2.48.12",
+        "lockfile-lint": "4.13.2",
+        "madge": "7.0.0",
+        "rimraf": "5.0.7"
     },
     "peerDependencies": {
-        "@diia-inhouse/types": ">=5.0.1"
+        "@diia-inhouse/types": ">=4.4.1"
     },
     "release": {
         "extends": "@diia-inhouse/configs/dist/semantic-release/package",
@@ -73,6 +77,7 @@
         "tsConfig": "./tsconfig.json"
     },
     "dependencies": {
+        "@diia-inhouse/diia-metrics": "3.11.0",
         "lodash.get": "4.4.2",
         "node-vault": "0.10.2",
         "protobufjs": "7.2.5"

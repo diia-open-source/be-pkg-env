@@ -4,11 +4,12 @@ import { setTimeout as delay } from 'node:timers/promises'
 import get from 'lodash.get'
 import Vault from 'node-vault'
 
-import { DurationMs, Logger, OnBeforeApplicationShutdown } from '@diia-inhouse/types'
+import { DurationMs, Logger, OnBeforeApplicationShutdown, OnDestroy } from '@diia-inhouse/types'
 
-import { Env } from '../interfaces'
+import { Env, GetSecretOps } from '../interfaces'
+import { vaultRequestsTotalMetric } from '../metrics'
 
-export class EnvService implements OnBeforeApplicationShutdown {
+export class EnvService implements OnDestroy, OnBeforeApplicationShutdown {
     private readonly isVaultEnabled = this.getVar('VAULT_ENABLED', 'boolean', false)
 
     private readonly renewalLeaseLifetime = this.getVar('VAULT_RENEWAL_LEASE_LIFETIME', 'number', 0.6)
@@ -32,21 +33,28 @@ export class EnvService implements OnBeforeApplicationShutdown {
             return
         }
 
-        const tokenPath = this.getVar('KUBERNETES_TOKEN_PATH', 'string', '/var/run/secrets/kubernetes.io/serviceaccount/token')
-        const k8sToken = await fs.readFile(tokenPath, 'utf8')
-        const loginResult = await this.vault.kubernetesLogin({ role: this.getVar('VAULT_ROLE'), jwt: k8sToken })
-        const {
-            auth: { client_token: token, lease_duration: leaseDuration, accessor },
-        } = loginResult
+        try {
+            const tokenPath = this.getVar('KUBERNETES_TOKEN_PATH', 'string', '/var/run/secrets/kubernetes.io/serviceaccount/token')
+            const k8sToken = await fs.readFile(tokenPath, 'utf8')
+            const loginResult = await this.vault.kubernetesLogin({ role: this.getVar('VAULT_ROLE'), jwt: k8sToken })
+            const {
+                auth: { client_token: token, lease_duration: leaseDuration, accessor },
+            } = loginResult
 
-        this.logger.info('Vault token accessor', { accessor })
+            this.logger.info('Vault token accessor', { accessor })
 
-        this.vault.token = token
-        this.scheduleTokenRenewal(leaseDuration)
+            this.vault.token = token
+            this.scheduleTokenRenewal(leaseDuration)
+        } catch (err) {
+            this.logger.error('Failed to init vault', { err })
+
+            throw err
+        }
     }
 
-    async getSecret(envName: string, accessor: string): Promise<string | null> {
-        const envValue = this.getVar(envName, 'string', null)
+    async getSecret(envName: string, ops: GetSecretOps = {}): Promise<string> {
+        const { accessor = `data.${envName}`, nullable } = ops
+        const envValue = this.getVar(envName, 'string', nullable ? null : undefined)
         if (!this.vault) {
             return envValue
         }
@@ -56,15 +64,23 @@ export class EnvService implements OnBeforeApplicationShutdown {
             return get(cachedRawSecret, accessor)
         }
 
-        const result = await this.vault.read(envValue)
-        const { data, lease_id: leaseId, lease_duration: leaseDuration } = result
-        if (leaseId) {
-            this.scheduleLeaseRenewal(leaseId, leaseDuration)
+        try {
+            const result = await this.vault.read(envValue)
+            const { data, lease_id: leaseId, lease_duration: leaseDuration } = result
+            if (leaseId) {
+                this.scheduleLeaseRenewal(leaseId, leaseDuration)
+            }
+
+            this.rawSecrets.set(envValue, data)
+            vaultRequestsTotalMetric.increment({ status: 'success', method: 'get_secret' })
+
+            return get(data, accessor)
+        } catch (err) {
+            vaultRequestsTotalMetric.increment({ status: 'failure', method: 'get_secret' })
+            this.logger.error('Failed to get vault secret', { err, envName, envValue })
+
+            throw err
         }
-
-        this.rawSecrets.set(envValue, data)
-
-        return get(data, accessor)
     }
 
     private async renewToken(retryDelay = DurationMs.Second): Promise<void> {
@@ -79,7 +95,17 @@ export class EnvService implements OnBeforeApplicationShutdown {
             } = await this.vault.tokenRenewSelf()
 
             this.scheduleTokenRenewal(leaseDuration)
+            vaultRequestsTotalMetric.increment({ status: 'success', method: 'renew_token' })
         } catch (err) {
+            if (err instanceof Error && err.message.includes('permission denied')) {
+                this.logger.error('Vault token is revoked. Exiting', { err })
+                process.emit('SIGINT')
+
+                return
+            }
+
+            vaultRequestsTotalMetric.increment({ status: 'failure', method: 'renew_token' })
+
             if (retryDelay > this.renewalMaxDelay) {
                 retryDelay = this.renewalMaxDelay
             }
@@ -100,7 +126,17 @@ export class EnvService implements OnBeforeApplicationShutdown {
             const { lease_duration: leaseDuration } = await this.vault.write('sys/leases/renew', { lease_id: leaseId })
 
             this.scheduleLeaseRenewal(leaseId, leaseDuration)
+            vaultRequestsTotalMetric.increment({ status: 'success', method: 'renew_lease' })
         } catch (err) {
+            if (err instanceof Error && err.message.includes('lease not found')) {
+                this.logger.error('Vault lease is revoked. Exiting', { err, leaseId })
+                process.emit('SIGINT')
+
+                return
+            }
+
+            vaultRequestsTotalMetric.increment({ status: 'failure', method: 'renew_lease' })
+
             this.logger.error(`Failed to renew vault lease. Retrying in ${retryDelay}ms`, { err, leaseId })
             if (retryDelay > this.renewalMaxDelay) {
                 retryDelay = this.renewalMaxDelay
@@ -123,8 +159,22 @@ export class EnvService implements OnBeforeApplicationShutdown {
         return leaseDurationS * DurationMs.Second * this.renewalLeaseLifetime
     }
 
+    async onDestroy(): Promise<void> {
+        await this.revokeToken()
+    }
+
+    // backward compatibility for diia-app <=14. dii-app >14 uses ordered OnDestroy hooks so onBeforeApplicationShutdown is not needed
     async onBeforeApplicationShutdown(): Promise<void> {
-        await this.vault?.tokenRevokeSelf()
+        await this.revokeToken()
+    }
+
+    private async revokeToken(): Promise<void> {
+        if (!this.vault?.token) {
+            return
+        }
+
+        this.vault.token = ''
+        await this.vault.tokenRevokeSelf()
     }
 
     getVar(name: string, type: 'boolean', defaultValue?: boolean | null): boolean
@@ -152,7 +202,7 @@ export class EnvService implements OnBeforeApplicationShutdown {
             const parsedValue = JSON.parse(value)
 
             if (typeof parsedValue !== type) {
-                throw new Error(`Unexpected typeof ${name} variable; Current typeof ${typeof parsedValue}`)
+                throw new TypeError(`Unexpected typeof ${name} variable; Current typeof ${typeof parsedValue}`)
             }
 
             return parsedValue

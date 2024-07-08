@@ -23,10 +23,10 @@ describe('EnvService', () => {
         const envService = new EnvService(new Logger())
 
         await envService.init()
-        const secret = await envService.getSecret('mongodb/creds/shared-test', 'username')
-        const retriedSecret = await envService.getSecret('mongodb/creds/shared-test', 'username')
-        const retriedSecretAnotherPath = await envService.getSecret('mongodb/creds/shared-test', 'password')
-        const staticSecret = await envService.getSecret('services/data/test', 'data')
+        const secret = await envService.getSecret('mongodb/creds/shared-test', { accessor: 'username' })
+        const retriedSecret = await envService.getSecret('mongodb/creds/shared-test', { accessor: 'username' })
+        const retriedSecretAnotherPath = await envService.getSecret('mongodb/creds/shared-test', { accessor: 'password' })
+        const staticSecret = await envService.getSecret('services/data/test', { accessor: 'data' })
 
         expect(secret).toEqual(retriedSecret)
         expect(retriedSecretAnotherPath).toBeDefined()

@@ -5,3 +5,8 @@ export enum Env {
     Dev = 'dev',
     Prod = 'prod',
 }
+
+export interface GetSecretOps {
+    accessor?: string
+    nullable?: boolean
+}

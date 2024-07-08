@@ -70,7 +70,7 @@ describe('EnvService', () => {
                     envService.getVar('TEST_ENV_SERVICE_INVALID_JSON', 'object')
                 }
 
-                expect(result).toThrow(/^Error while parsing TEST_ENV_SERVICE_INVALID_JSON variable. Current value: \{someProp: 2;.*/)
+                expect(result).toThrow(/^Error while parsing TEST_ENV_SERVICE_INVALID_JSON variable. Current value: */)
             })
 
             it('should be thrown error while checking typeof', () => {
@@ -244,9 +244,25 @@ describe('EnvService', () => {
                 const envService = new EnvService(logger)
 
                 process.env.SECRET_ENV = 'secret-env'
-                const secret = await envService.getSecret('SECRET_ENV', 'accessor')
+                const secret = await envService.getSecret('SECRET_ENV', { accessor: 'accessor' })
 
                 expect(secret).toBe('secret-env')
+            })
+
+            it('should throw an error if env is not presented', async () => {
+                const envService = new EnvService(logger)
+
+                await expect(envService.getSecret('SECRET_ENV_NOT_EXISTED', { accessor: 'accessor' })).rejects.toThrow(
+                    'Env variable SECRET_ENV_NOT_EXISTED is not defined',
+                )
+            })
+
+            it('should return null if env is not presented and nullable option is true', async () => {
+                const envService = new EnvService(logger)
+
+                const secret = await envService.getSecret('SECRET_ENV_NOT_EXISTED', { accessor: 'accessor', nullable: true })
+
+                expect(secret).toBeNull()
             })
         })
 
@@ -270,7 +286,7 @@ describe('EnvService', () => {
                 })
 
                 // Act
-                const secret = await envService.getSecret('SECRET_ENV', 'password')
+                const secret = await envService.getSecret('SECRET_ENV', { accessor: 'password' })
 
                 // Assert
                 expect(secret).toBe('secret-password')
@@ -290,7 +306,7 @@ describe('EnvService', () => {
                 const writeSpy = jest.spyOn(vault, 'write').mockResolvedValueOnce({ lease_duration: 180 })
 
                 // Act
-                await envService.getSecret('SECRET_ENV', 'password')
+                await envService.getSecret('SECRET_ENV', { accessor: 'password' })
 
                 // Assert
                 expect(setTimeoutSpy).toHaveBeenCalledWith(expect.any(Function), DurationMs.Second * 120 * 0.6)
@@ -298,6 +314,32 @@ describe('EnvService', () => {
                 expect(writeSpy).toHaveBeenCalledWith('sys/leases/renew', { lease_id: 'lease-id' })
                 expect(setTimeoutSpy).toHaveBeenCalledWith(expect.any(Function), DurationMs.Second * 180 * 0.6)
             })
+        })
+    })
+
+    describe('hooks', () => {
+        beforeEach(() => {
+            process.env.VAULT_ENABLED = 'true'
+            process.env.VAULT_ADDR = 'https://vault.example'
+            process.env.VAULT_ROLE = 'vault-role'
+            process.env.VAULT_RENEWAL_LEASE_LIFETIME = '0.6'
+        })
+        it('should call vault tokenRevokeSelf only once', async () => {
+            // Arrange
+            const envService = new EnvService(logger)
+            const vault = <Vault.client>Reflect.get(envService, 'vault')
+
+            vault.token = 'vault-token'
+
+            const spy = jest.spyOn(vault, 'tokenRevokeSelf').mockResolvedValueOnce({})
+
+            // Act
+            await envService.onDestroy()
+            await envService.onBeforeApplicationShutdown()
+
+            // Assert
+            expect(spy).toHaveBeenCalledTimes(1)
+            expect(vault.token).toBe('')
         })
     })
 })
