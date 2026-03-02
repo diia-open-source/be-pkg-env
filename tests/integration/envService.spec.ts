@@ -15,7 +15,7 @@ describe('EnvService', () => {
     })
 
     // The test case for the development purposes. Currently integration tests are disabled on CI for this repo
-    it('should init vault and get secrets', async () => {
+    it.skip('should init vault and get secrets', async () => {
         process.env.VAULT_ENABLED = 'true'
         process.env.VAULT_ADDR = ''
         process.env.VAULT_ROLE_ID = ''

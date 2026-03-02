@@ -1,1 +1,1 @@
-jest.setTimeout(3000000)
+vi.setConfig({ testTimeout: 3000000 })

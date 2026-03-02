@@ -4,28 +4,64 @@ import { setTimeout as delay } from 'node:timers/promises'
 import get from 'lodash.get'
 import Vault from 'node-vault'
 
-import { DurationMs, Logger, OnBeforeApplicationShutdown, OnDestroy } from '@diia-inhouse/types'
+import { DurationMs, Logger, OnDestroy } from '@diia-inhouse/types'
 
-import { Env, GetSecretOps } from '../interfaces'
+import { Env, GetSecretOps, GetTransitKeyOps, GetTransitKeyReadResult, ProcessedTransitKey } from '../interfaces'
 import { vaultRequestsTotalMetric } from '../metrics'
 
-export class EnvService implements OnDestroy, OnBeforeApplicationShutdown {
-    private readonly isVaultEnabled = this.getVar('VAULT_ENABLED', 'boolean', false)
+export class EnvService implements OnDestroy {
+    private readonly kubernetesPath = 'kubernetes'
 
-    private readonly renewalLeaseLifetime = this.getVar('VAULT_RENEWAL_LEASE_LIFETIME', 'number', 0.6)
+    private readonly isVaultEnabled = EnvService.getVar('VAULT_ENABLED', 'boolean', false)
 
-    private readonly renewalMaxDelay = this.getVar('VAULT_RENEWAL_MAX_DELAY', 'number', DurationMs.Minute)
+    private readonly renewalLeaseLifetime = EnvService.getVar('VAULT_RENEWAL_LEASE_LIFETIME', 'number', 0.6)
+
+    private readonly renewalMaxDelay = EnvService.getVar('VAULT_RENEWAL_MAX_DELAY', 'number', DurationMs.Minute)
 
     private readonly rawSecrets = new Map<string, Record<string, string>>()
 
     private vault: Vault.client | null = null
 
-    constructor(private readonly logger: Logger) {
+    constructor(private logger: Logger) {
         if (!this.isVaultEnabled) {
             return
         }
 
-        this.vault = Vault({ apiVersion: 'v1', endpoint: this.getVar('VAULT_ADDR') })
+        this.vault = Vault({ apiVersion: 'v1', endpoint: EnvService.getVar('VAULT_ADDR') })
+    }
+
+    static getVar(name: string, type: 'boolean', defaultValue?: boolean | null): boolean
+    static getVar(name: string, type: 'number', defaultValue?: number | null): number
+    static getVar(name: string, type?: 'string', defaultValue?: string | null): string
+    static getVar<T extends unknown[]>(name: string, type: 'object', defaultValue?: T | null): T
+    static getVar<T extends Record<string, unknown>>(name: string, type: 'object', defaultValue?: T | null): T
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    static getVar(name: string, type: 'string' | 'boolean' | 'number' | 'object' = 'string', defaultValue?: unknown): any {
+        const value = process.env[name]
+
+        if (!value) {
+            if (defaultValue || defaultValue !== undefined) {
+                return defaultValue
+            }
+
+            throw new Error(`Env variable ${name} is not defined`)
+        }
+
+        if (type === 'string') {
+            return value
+        }
+
+        try {
+            const parsedValue = JSON.parse(value)
+
+            if (typeof parsedValue !== type) {
+                throw new TypeError(`Unexpected typeof ${name} variable; Current typeof ${typeof parsedValue}`)
+            }
+
+            return parsedValue
+        } catch (err) {
+            throw new Error(`Error while parsing ${name} variable. Current value: ${value}; ${err}`)
+        }
     }
 
     async init(): Promise<void> {
@@ -34,13 +70,19 @@ export class EnvService implements OnDestroy, OnBeforeApplicationShutdown {
         }
 
         try {
-            const tokenPath = this.getVar('KUBERNETES_TOKEN_PATH', 'string', '/var/run/secrets/kubernetes.io/serviceaccount/token')
-            const k8sToken = await fs.readFile(tokenPath, 'utf8')
-            const loginResult = await this.vault.kubernetesLogin({ role: this.getVar('VAULT_ROLE'), jwt: k8sToken })
+            const tokenPath = EnvService.getVar('KUBERNETES_TOKEN_PATH', 'string', '/var/run/secrets/kubernetes.io/serviceaccount/token')
+            // eslint-disable-next-line security/detect-non-literal-fs-filename
+            const k8sToken = await fs.readFile(tokenPath, 'utf8') // nosemgrep: eslint.detect-non-literal-fs-filename
+            const loginResult = await this.vault.kubernetesLogin({
+                jwt: k8sToken,
+                kubernetesPath: this.kubernetesPath,
+                role: EnvService.getVar('VAULT_ROLE'),
+            })
             const {
-                auth: { client_token: token, lease_duration: leaseDuration, accessor },
+                auth: { client_token: token, lease_duration: leaseDuration, accessor, service_account_name },
             } = loginResult
 
+            this.logger = this.logger.child({ vaultServiceAccountName: service_account_name })
             this.logger.info('Vault token accessor', { accessor })
 
             this.vault.token = token
@@ -52,9 +94,13 @@ export class EnvService implements OnDestroy, OnBeforeApplicationShutdown {
         }
     }
 
+    async onDestroy(): Promise<void> {
+        await this.revokeToken()
+    }
+
     async getSecret(envName: string, ops: GetSecretOps = {}): Promise<string> {
         const { accessor = `data.${envName}`, nullable } = ops
-        const envValue = this.getVar(envName, 'string', nullable ? null : undefined)
+        const envValue = EnvService.getVar(envName, 'string', nullable ? null : undefined)
         if (!this.vault) {
             return envValue
         }
@@ -81,6 +127,62 @@ export class EnvService implements OnDestroy, OnBeforeApplicationShutdown {
 
             throw err
         }
+    }
+
+    async getTransitKey(keyId: string, ops: GetTransitKeyOps = {}): Promise<ProcessedTransitKey> {
+        const { keyVersion } = ops
+        if (!this.vault) {
+            throw new Error('Vault is not initialized. Failed to get transit key')
+        }
+
+        try {
+            const vaultPath = keyVersion ? `${keyId}/${keyVersion}` : keyId
+
+            const { data }: GetTransitKeyReadResult = await this.vault.read(vaultPath)
+
+            const keyVersions = Object.keys(data.keys)
+            const highestKeyVersion = keyVersions.sort((a, b) => Number(b) - Number(a))[0]
+
+            if (!highestKeyVersion) {
+                throw new Error(`No key versions found for key ${keyId}`)
+            }
+
+            const key = data.keys[Number(highestKeyVersion)]
+            const fullKeyName = `${keyId}/${highestKeyVersion}`
+
+            return { fullKeyName, key }
+        } catch (err) {
+            this.logger.error('Failed to get transit key', { err, path: keyId })
+            throw err
+        }
+    }
+
+    isLocal(): boolean {
+        return this.getEnv() === Env.Local
+    }
+
+    isTest(): boolean {
+        return this.getEnv() === Env.Test
+    }
+
+    isSandbox(): boolean {
+        return this.getEnv() === Env.Sandbox
+    }
+
+    isStage(): boolean {
+        return this.getEnv() === Env.Stage
+    }
+
+    isDev(): boolean {
+        return this.getEnv() === Env.Dev
+    }
+
+    isProd(): boolean {
+        return this.getEnv() === Env.Prod
+    }
+
+    getEnv(): Env {
+        return process.env.NODE_ENV as Env
     }
 
     private async renewToken(retryDelay = DurationMs.Second): Promise<void> {
@@ -159,79 +261,11 @@ export class EnvService implements OnDestroy, OnBeforeApplicationShutdown {
         return leaseDurationS * DurationMs.Second * this.renewalLeaseLifetime
     }
 
-    async onDestroy(): Promise<void> {
-        await this.revokeToken()
-    }
-
-    // backward compatibility for diia-app <=14. dii-app >14 uses ordered OnDestroy hooks so onBeforeApplicationShutdown is not needed
-    async onBeforeApplicationShutdown(): Promise<void> {
-        await this.revokeToken()
-    }
-
     private async revokeToken(): Promise<void> {
-        if (!this.vault?.token) {
+        if (!this.vault) {
             return
         }
 
-        this.vault.token = ''
         await this.vault.tokenRevokeSelf()
-    }
-
-    getVar(name: string, type: 'boolean', defaultValue?: boolean | null): boolean
-    getVar(name: string, type: 'number', defaultValue?: number | null): number
-    getVar(name: string, type?: 'string', defaultValue?: string | null): string
-    getVar<T extends unknown[]>(name: string, type: 'object', defaultValue?: T | null): T
-    getVar<T extends Record<string, unknown>>(name: string, type: 'object', defaultValue?: T | null): T
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    getVar(name: string, type: 'string' | 'boolean' | 'number' | 'object' = 'string', defaultValue?: unknown): any {
-        const value = process.env[name]
-
-        if (!value) {
-            if (defaultValue || defaultValue !== undefined) {
-                return defaultValue
-            }
-
-            throw new Error(`Env variable ${name} is not defined`)
-        }
-
-        if (type === 'string') {
-            return value
-        }
-
-        try {
-            const parsedValue = JSON.parse(value)
-
-            if (typeof parsedValue !== type) {
-                throw new TypeError(`Unexpected typeof ${name} variable; Current typeof ${typeof parsedValue}`)
-            }
-
-            return parsedValue
-        } catch (err) {
-            throw new Error(`Error while parsing ${name} variable. Current value: ${value}; ${err}`)
-        }
-    }
-
-    isLocal(): boolean {
-        return this.getEnv() === Env.Local
-    }
-
-    isTest(): boolean {
-        return this.getEnv() === Env.Test
-    }
-
-    isStage(): boolean {
-        return this.getEnv() === Env.Stage
-    }
-
-    isDev(): boolean {
-        return this.getEnv() === Env.Dev
-    }
-
-    isProd(): boolean {
-        return this.getEnv() === Env.Prod
-    }
-
-    getEnv(): Env {
-        return <Env>process.env.NODE_ENV
     }
 }
