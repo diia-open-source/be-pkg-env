@@ -489,3 +489,5 @@ ASALocalRun/
 .npmrc
 
 dist/
+
+.serena

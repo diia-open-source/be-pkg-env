@@ -1,11 +1,10 @@
 import fs from 'node:fs/promises'
 
-import Vault from 'node-vault'
-
 import Logger from '@diia-inhouse/diia-logger'
 import { DurationMs } from '@diia-inhouse/types'
 
 import { Env, EnvService, GetTransitKeyResult, ProcessedTransitKey } from '../../src'
+import { VaultClient } from '../../src/services/vaultClient'
 
 describe('EnvService', () => {
     const logger = new Logger()
@@ -178,7 +177,7 @@ describe('EnvService', () => {
                 // Arrange
                 const envService = new EnvService(logger)
                 const readFileSpy = vi.spyOn(fs, 'readFile').mockResolvedValueOnce('k8s-token')
-                const vault = Reflect.get(envService, 'vault') as Vault.client
+                const vault = Reflect.get(envService, 'vault') as VaultClient
                 const kubernetesLoginSpy = vi
                     .spyOn(vault, 'kubernetesLogin')
                     .mockResolvedValue({ auth: { client_token: 'vault-token', lease_duration: 1000 } })
@@ -195,7 +194,7 @@ describe('EnvService', () => {
             it('should renew token', async () => {
                 // Arrange
                 const envService = new EnvService(logger)
-                const vault = Reflect.get(envService, 'vault') as Vault.client
+                const vault = Reflect.get(envService, 'vault') as VaultClient
 
                 vi.spyOn(fs, 'readFile').mockResolvedValueOnce('k8s-token')
                 vi.spyOn(vault, 'kubernetesLogin').mockResolvedValue({ auth: { client_token: 'vault-token', lease_duration: 120 } })
@@ -212,7 +211,7 @@ describe('EnvService', () => {
             it('should reschedule renewal if error happened', async () => {
                 // Arrange
                 const envService = new EnvService(logger)
-                const vault = Reflect.get(envService, 'vault') as Vault.client
+                const vault = Reflect.get(envService, 'vault') as VaultClient
 
                 vi.spyOn(fs, 'readFile').mockResolvedValueOnce('k8s-token')
                 vi.spyOn(vault, 'kubernetesLogin').mockResolvedValue({ auth: { client_token: 'vault-token', lease_duration: 120 } })
@@ -271,7 +270,7 @@ describe('EnvService', () => {
             it('should return actual secret', async () => {
                 // Arrange
                 const envService = new EnvService(logger)
-                const vault = Reflect.get(envService, 'vault') as Vault.client
+                const vault = Reflect.get(envService, 'vault') as VaultClient
 
                 vi.spyOn(vault, 'read').mockResolvedValueOnce({
                     data: { password: 'secret-password' },
@@ -289,7 +288,7 @@ describe('EnvService', () => {
             it('should renew lease', async () => {
                 // Arrange
                 const envService = new EnvService(logger)
-                const vault = Reflect.get(envService, 'vault') as Vault.client
+                const vault = Reflect.get(envService, 'vault') as VaultClient
 
                 vi.spyOn(vault, 'read').mockResolvedValueOnce({
                     data: { password: 'secret-password' },
@@ -322,7 +321,7 @@ describe('EnvService', () => {
             it('should retrieve transit key from vault', async () => {
                 // Arrange
                 const envService = new EnvService(logger)
-                const vault = Reflect.get(envService, 'vault') as Vault.client
+                const vault = Reflect.get(envService, 'vault') as VaultClient
                 const mockTransitKeyData: GetTransitKeyResult = {
                     keys: { 1: 'test-key-1', 2: 'test-key-2' },
                     name: 'test-key',
@@ -348,7 +347,7 @@ describe('EnvService', () => {
             it('should append keyVersion to path when provided', async () => {
                 // Arrange
                 const envService = new EnvService(logger)
-                const vault = Reflect.get(envService, 'vault') as Vault.client
+                const vault = Reflect.get(envService, 'vault') as VaultClient
                 const mockTransitKeyData: GetTransitKeyResult = {
                     keys: { 1: 'test-key-1' },
                     name: 'test-key',
@@ -374,7 +373,7 @@ describe('EnvService', () => {
             it('should handle errors and log them', async () => {
                 // Arrange
                 const envService = new EnvService(logger)
-                const vault = Reflect.get(envService, 'vault') as Vault.client
+                const vault = Reflect.get(envService, 'vault') as VaultClient
                 const error = new Error('Vault error')
 
                 vi.spyOn(vault, 'read').mockRejectedValueOnce(error)

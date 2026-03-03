@@ -2,12 +2,12 @@ import fs from 'node:fs/promises'
 import { setTimeout as delay } from 'node:timers/promises'
 
 import get from 'lodash.get'
-import Vault from 'node-vault'
 
 import { DurationMs, Logger, OnDestroy } from '@diia-inhouse/types'
 
 import { Env, GetSecretOps, GetTransitKeyOps, GetTransitKeyReadResult, ProcessedTransitKey } from '../interfaces'
 import { vaultRequestsTotalMetric } from '../metrics'
+import { VaultClient } from './vaultClient'
 
 export class EnvService implements OnDestroy {
     private readonly kubernetesPath = 'kubernetes'
@@ -20,14 +20,14 @@ export class EnvService implements OnDestroy {
 
     private readonly rawSecrets = new Map<string, Record<string, string>>()
 
-    private vault: Vault.client | null = null
+    private vault: VaultClient | null = null
 
     constructor(private logger: Logger) {
         if (!this.isVaultEnabled) {
             return
         }
 
-        this.vault = Vault({ apiVersion: 'v1', endpoint: EnvService.getVar('VAULT_ADDR') })
+        this.vault = new VaultClient(EnvService.getVar('VAULT_ADDR'))
     }
 
     static getVar(name: string, type: 'boolean', defaultValue?: boolean | null): boolean
