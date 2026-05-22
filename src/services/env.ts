@@ -5,9 +5,9 @@ import get from 'lodash.get'
 
 import { DurationMs, Logger, OnDestroy } from '@diia-inhouse/types'
 
-import { Env, GetSecretOps, GetTransitKeyOps, GetTransitKeyReadResult, ProcessedTransitKey } from '../interfaces'
-import { vaultRequestsTotalMetric } from '../metrics'
-import { VaultClient } from './vaultClient'
+import { Env, GetSecretOps, GetTransitKeyOps, GetTransitKeyReadResult, ProcessedTransitKey } from '../interfaces/index.js'
+import { vaultRequestsTotalMetric } from '../metrics/index.js'
+import { VaultClient } from './vaultClient.js'
 
 export class EnvService implements OnDestroy {
     private readonly kubernetesPath = 'kubernetes'
@@ -60,7 +60,7 @@ export class EnvService implements OnDestroy {
 
             return parsedValue
         } catch (err) {
-            throw new Error(`Error while parsing ${name} variable. Current value: ${value}; ${err}`)
+            throw new Error(`Error while parsing ${name} variable. Current value: ${value}; ${String(err)}`, { cause: err })
         }
     }
 
@@ -185,7 +185,7 @@ export class EnvService implements OnDestroy {
         return process.env.NODE_ENV as Env
     }
 
-    private async renewToken(retryDelay = DurationMs.Second): Promise<void> {
+    private async renewToken(retryDelay: number = DurationMs.Second): Promise<void> {
         if (!this.vault) {
             return
         }
@@ -218,7 +218,7 @@ export class EnvService implements OnDestroy {
         }
     }
 
-    private async renewLease(leaseId: string, retryDelay = DurationMs.Second): Promise<void> {
+    private async renewLease(leaseId: string, retryDelay: number = DurationMs.Second): Promise<void> {
         if (!this.vault) {
             return
         }

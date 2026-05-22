@@ -1,3 +1,5 @@
+import { setTimeout as delay } from 'node:timers/promises'
+
 import Logger from '@diia-inhouse/diia-logger'
 import { DurationMs } from '@diia-inhouse/types'
 
@@ -32,6 +34,6 @@ describe('EnvService', () => {
         expect(retriedSecretAnotherPath).toBeDefined()
         expect(staticSecret).toBeDefined()
 
-        await new Promise((resolve) => setTimeout(resolve, DurationMs.Second * 10))
+        await delay(DurationMs.Second * 10)
     })
 })
