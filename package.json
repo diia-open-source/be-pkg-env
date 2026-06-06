@@ -1,6 +1,6 @@
 {
     "name": "@diia-inhouse/env",
-    "version": "3.3.7",
+    "version": "3.3.8",
     "type": "module",
     "description": "Environment checking service",
     "main": "dist/index.js",
@@ -34,13 +34,13 @@
         "find-circulars": "madge --circular --extensions ts ./"
     },
     "dependencies": {
-        "@diia-inhouse/diia-metrics": "7.1.16",
+        "@diia-inhouse/diia-metrics": "7.1.18",
         "dotenv-flow": "4.1.0",
         "lodash.get": "4.4.2"
     },
     "devDependencies": {
         "@diia-inhouse/configs": "7.0.0",
-        "@diia-inhouse/diia-logger": "4.3.7",
+        "@diia-inhouse/diia-logger": "4.3.9",
         "@diia-inhouse/errors": "2.1.7",
         "@diia-inhouse/oxc-config": "1.10.1",
         "@diia-inhouse/test": "8.2.6",
