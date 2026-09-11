@@ -1,6 +1,6 @@
 {
     "name": "@diia-inhouse/env",
-    "version": "3.3.60",
+    "version": "3.3.61",
     "type": "module",
     "description": "Environment checking service",
     "main": "dist/index.js",
@@ -47,8 +47,8 @@
         "@diia-inhouse/types": "14.2.9",
         "@types/dotenv-flow": "3.3.3",
         "@types/lodash.get": "4.4.9",
-        "@vitest/coverage-v8": "4.1.5",
-        "@vitest/ui": "4.1.5",
+        "@vitest/coverage-v8": "4.1.11",
+        "@vitest/ui": "4.1.11",
         "lockfile-lint": "5.0.0",
         "madge": "8.0.0",
         "oxfmt": "0.48.0",
@@ -57,7 +57,7 @@
         "rimraf": "6.1.3",
         "tsdown": "0.22.0",
         "vite-tsconfig-paths": "6.1.1",
-        "vitest": "4.1.5"
+        "vitest": "4.1.11"
     },
     "peerDependencies": {
         "@diia-inhouse/types": ">=13.1.1"
