@@ -1,6 +1,6 @@
 {
     "name": "@diia-inhouse/env",
-    "version": "3.3.93",
+    "version": "3.3.94",
     "description": "Environment checking service",
     "license": "SEE LICENSE IN LICENSE.md",
     "author": "diia-team",
@@ -28,8 +28,7 @@
         "lint:lockfile": "lockfile-lint --path package-lock.json --allowed-hosts registry.npmjs.org --validate-https",
         "prepare": "npm run build",
         "test": "vitest run",
-        "test:watch": "vitest watch",
-        "find-circulars": "madge --circular --extensions ts ./"
+        "test:watch": "vitest watch"
     },
     "dependencies": {
         "@diia-inhouse/diia-metrics": "7.1.155",
@@ -40,7 +39,7 @@
         "@diia-inhouse/configs": "7.2.3",
         "@diia-inhouse/diia-logger": "4.7.28",
         "@diia-inhouse/errors": "2.3.28",
-        "@diia-inhouse/oxc-config": "5.0.2",
+        "@diia-inhouse/oxc-config": "6.1.1",
         "@diia-inhouse/test": "8.3.44",
         "@diia-inhouse/types": "14.9.1",
         "@types/dotenv-flow": "3.3.3",
@@ -48,7 +47,6 @@
         "@vitest/coverage-v8": "4.1.11",
         "@vitest/ui": "4.1.11",
         "lockfile-lint": "5.0.0",
-        "madge": "8.0.0",
         "oxfmt": "0.72.0",
         "oxlint": "1.87.0",
         "oxlint-tsgolint": "7.0.2003",
@@ -71,8 +69,5 @@
     },
     "engines": {
         "node": ">=24"
-    },
-    "madge": {
-        "tsConfig": "./tsconfig.json"
     }
 }
