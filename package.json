@@ -1,6 +1,6 @@
 {
     "name": "@diia-inhouse/env",
-    "version": "3.3.105",
+    "version": "3.3.106",
     "description": "Environment checking service",
     "license": "SEE LICENSE IN LICENSE.md",
     "author": "diia-team",
@@ -31,7 +31,7 @@
         "test:watch": "vitest watch"
     },
     "dependencies": {
-        "@diia-inhouse/diia-metrics": "7.1.165",
+        "@diia-inhouse/diia-metrics": "7.1.166",
         "dotenv-flow": "4.1.0",
         "lodash.get": "4.4.2"
     },
