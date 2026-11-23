@@ -1,6 +1,6 @@
 {
     "name": "@diia-inhouse/env",
-    "version": "3.3.119",
+    "version": "3.3.120",
     "description": "Environment checking service",
     "license": "SEE LICENSE IN LICENSE.md",
     "author": "diia-team",
@@ -19,7 +19,6 @@
         "./package.json": "./package.json"
     },
     "scripts": {
-        "prebuild": "rimraf dist",
         "build": "tsdown",
         "semantic-release": "semantic-release",
         "start": "npm run build && node dist/index.js",
@@ -50,7 +49,6 @@
         "oxfmt": "0.72.0",
         "oxlint": "1.87.0",
         "oxlint-tsgolint": "7.0.2003",
-        "rimraf": "6.1.3",
         "tsdown": "0.22.0",
         "vite-tsconfig-paths": "6.1.1",
         "vitest": "4.1.11"
