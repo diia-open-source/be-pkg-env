@@ -1,6 +1,6 @@
 {
     "name": "@diia-inhouse/env",
-    "version": "3.3.120",
+    "version": "3.3.121",
     "description": "Environment checking service",
     "license": "SEE LICENSE IN LICENSE.md",
     "author": "diia-team",
@@ -30,16 +30,16 @@
         "test:watch": "vitest watch"
     },
     "dependencies": {
-        "@diia-inhouse/diia-metrics": "7.1.194",
+        "@diia-inhouse/diia-metrics": "7.1.197",
         "dotenv-flow": "4.1.0",
         "lodash.get": "4.4.2"
     },
     "devDependencies": {
         "@diia-inhouse/configs": "7.4.0",
-        "@diia-inhouse/diia-logger": "4.7.64",
-        "@diia-inhouse/errors": "2.3.49",
+        "@diia-inhouse/diia-logger": "4.7.66",
+        "@diia-inhouse/errors": "2.3.50",
         "@diia-inhouse/oxc-config": "6.2.1",
-        "@diia-inhouse/test": "8.4.14",
+        "@diia-inhouse/test": "8.4.16",
         "@diia-inhouse/types": "14.13.3",
         "@types/dotenv-flow": "3.3.3",
         "@types/lodash.get": "4.4.9",
